@@ -123,6 +123,21 @@ function Adjust-DynamicPortRange()
     # The fix which reduces dynamic port usage for non-DSR load balancers is shiped with KB4550969 in April 2020
     # Update the range to [33000, 65535] to avoid that it conflicts with NodePort range (30000 - 32767)
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "33000", "32536")
+
+    # https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#what-protocols-can-i-use-within-vnets
+    # Exclude UDP source port 65530
+    # Enable the feature
+    New-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\hns\State -Name EnableExcludedPortRange -PropertyType DWORD -Value 1
+    # Set the port range starting port
+    New-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\hns\State -Name ExcludedPortRangeStartPort -PropertyType DWORD -Value 65330
+    # Set the port range count
+    New-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\hns\State -Name ExcludedPortRangePortCount -PropertyType DWORD -Value 1
+
+    # Above change in registry needs to restart HNS. It can be skipped for now since the node is always reboot but we will remove the node reboot soon.
+    Restart-Service HNS
+
+    # Log the result
+    netsh int ipv4 show excludedportrange udp
 }
 
 # TODO: should this be in this PR?
